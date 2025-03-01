@@ -16,6 +16,7 @@ SignalK plugin for REC-BMS
 ## Installation
 
 1. Use the SignalK application store
+   or
 2. Run the following command:
    ```bash
    npm install signalk-rec-bms
