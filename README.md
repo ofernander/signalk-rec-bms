@@ -13,7 +13,7 @@ SignalK plugin for REC-BMS
 
 - npm package: [websocket](https://www.npmjs.com/package/websocket)
 
-## Installation
+## Installation (Choose one)
 
 1. Use the SignalK application store
    or
