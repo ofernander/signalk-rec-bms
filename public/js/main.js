@@ -39,8 +39,7 @@ class BMSSystem {
 
   cacheDomElements() {
     const metrics = [
-      'voltage', 'current', 'power', 'stateOfCharge', 'stateOfHealth',
-      'cellVoltageDifference', 'bmsTemperature', 'cellTemperature1',
+      'voltage', 'current', 'power', 'stateOfCharge', 'cellVoltageDifference', 'bmsTemperature', 'cellTemperature1',
       'maxCellVoltage', 'minCellVoltage', 'ampHourRemaining',
       'ampHourUsed', 'capacity'
     ];
@@ -48,7 +47,7 @@ class BMSSystem {
     metrics.forEach(metric => {
       this.dom.metricElements[metric] = document.getElementById(metric);
       if (!this.dom.metricElements[metric]) {
-        console.error(`Missing metric element: ${metric}`);
+        console.warn(`Missing metric element: ${metric}`);
       }
     });
   }
@@ -120,20 +119,23 @@ class BMSSystem {
 
   connectWebSocket() {
     try {
-      const ws = new WebSocket(`ws://${window.location.host}/signalk/v1/stream?subscribe=self&path=electrical.batteries.bms.*`);
-
+      const wsScheme = (window.location.protocol === "https:") ? "wss" : "ws";
+      const ws = new WebSocket(
+        `${wsScheme}://${window.location.host}/signalk/v1/stream?subscribe=self&path=electrical.batteries.bms.*`
+      );
+  
       ws.onopen = () => console.log("WebSocket connected");
       ws.onerror = (error) => console.error("WebSocket error:", error);
       ws.onclose = () => console.log("WebSocket connection closed");
-
+  
       ws.onmessage = (event) => {
         const delta = JSON.parse(event.data);
         if (!delta.updates) return;
-
+  
         delta.updates.forEach(update => {
           update.values?.forEach(({ path, value }) => {
             if (!path.startsWith(this.prefix)) return;
-
+  
             const key = path.slice(this.prefix.length);
             if (key in this.liveData) {
               this.liveData[key] = value;
@@ -144,7 +146,7 @@ class BMSSystem {
             }
           });
         });
-
+  
         this.updateMetrics();
         CellVisualizer.updateAllCells({
           cellVoltages: this.liveData.cellVoltages,
@@ -154,7 +156,7 @@ class BMSSystem {
     } catch (error) {
       console.error("WebSocket initialization failed:", error);
     }
-  }
+  }  
 }
 
 document.addEventListener('DOMContentLoaded', () => {

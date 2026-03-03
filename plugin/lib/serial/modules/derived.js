@@ -53,41 +53,115 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
     if (typeof v === 'number') { capacity = v; computeAndSendDeltas(); }
   });
 
+  // ---- Cell diff logic ----
   let totalCells = 0;
-  const cellVoltages = {};
+  let unitsExpected = 0;
+  let cellVoltages = {};
   let subscribedCellStreams = false;
 
+  // prevent duplicate subscriptions if units changes / reconnects
+  const subscribedCells = new Set();
+
+  // retry controls (avoid timer storms + max wait)
+  let pendingCellDiffTimer = null;
+  let firstCellSeenAtMs = null;
+  const CELL_DIFF_RETRY_MS = 200;
+  const CELL_DIFF_MAX_WAIT_MS = 8000;
+
   app.streambundle.getSelfStream(prefix + 'numBMSUnits').forEach(units => {
-    if (!subscribedCellStreams && typeof units === 'number' && units > 0) {
-      totalCells = units * 4;
+    if (typeof units === 'number' && units > 0) {
+      // If units changes (or first time), reset expectations and cached values
+      if (units !== unitsExpected) {
+        unitsExpected = units;
+        totalCells = units * 4;
+        cellVoltages = {};
+        firstCellSeenAtMs = null;
+
+        // clear any pending retry from old expectations
+        if (pendingCellDiffTimer) {
+          clearTimeout(pendingCellDiffTimer);
+          pendingCellDiffTimer = null;
+        }
+      }
+
+      // Ensure we have subscriptions for 1..totalCells (do not duplicate)
       for (let i = 1; i <= totalCells; i++) {
+        if (subscribedCells.has(i)) continue;
+
+        subscribedCells.add(i);
         const cellPath = prefix + 'cellVoltage' + i;
         app.streambundle.getSelfStream(cellPath).forEach(val => {
-          if (typeof val === 'number') {
+          if (typeof val === 'number' && Number.isFinite(val)) {
+            if (!firstCellSeenAtMs) firstCellSeenAtMs = Date.now();
             cellVoltages[i] = val;
             trySendCellDiff();
           }
         });
       }
+
       subscribedCellStreams = true;
+
+      // Attempt immediately in case we already have cached values after restart
+      trySendCellDiff();
     }
   });
 
+  function scheduleCellDiffRetry() {
+    if (pendingCellDiffTimer) return;
+    if (!subscribedCellStreams || totalCells <= 0) return;
+
+    pendingCellDiffTimer = setTimeout(() => {
+      pendingCellDiffTimer = null;
+      trySendCellDiff();
+    }, CELL_DIFF_RETRY_MS);
+  }
+
   function trySendCellDiff() {
-    const keys = Object.keys(cellVoltages).map(k => parseInt(k, 10));
-    if (keys.length === totalCells) {
-      const vals = keys.map(i => cellVoltages[i]);
-      const minV = Math.min(...vals);
-      const maxV = Math.max(...vals);
-      sendDeltaCallback({
-        updates: [{
-          values: [
-            { path: prefix + 'cellVoltageDifference', value: maxV - minV }
-          ]
-        }]
-      });
+    if (!subscribedCellStreams || totalCells <= 0) return;
+
+    // Only consider cells within expected range
+    const keys = Object.keys(cellVoltages)
+      .map(k => parseInt(k, 10))
+      .filter(i => Number.isInteger(i) && i >= 1 && i <= totalCells);
+
+    // A: publish as soon as we have enough to compute (>= 2 cells)
+    if (keys.length >= 2) {
+      const vals = keys.map(i => cellVoltages[i]).filter(v => typeof v === 'number' && Number.isFinite(v));
+      if (vals.length >= 2) {
+        const minV = Math.min(...vals);
+        const maxV = Math.max(...vals);
+
+        sendDeltaCallback({
+          updates: [{
+            values: [
+              { path: prefix + 'cellVoltageDifference', value: maxV - minV }
+            ]
+          }]
+        });
+      }
+    }
+
+    // B: if we haven't seen all cells yet, retry safely with max-wait
+    if (keys.length < totalCells) {
+      const now = Date.now();
+      if (!firstCellSeenAtMs) firstCellSeenAtMs = now;
+
+      const elapsed = now - firstCellSeenAtMs;
+      if (elapsed < CELL_DIFF_MAX_WAIT_MS) {
+        scheduleCellDiffRetry();
+      } else {
+        // stop retrying after max wait; cell updates will still trigger publishes
+        if (pendingCellDiffTimer) {
+          clearTimeout(pendingCellDiffTimer);
+          pendingCellDiffTimer = null;
+        }
+      }
     } else {
-      setTimeout(trySendCellDiff, 10);
+      // all cells present: no need to keep retry timer
+      if (pendingCellDiffTimer) {
+        clearTimeout(pendingCellDiffTimer);
+        pendingCellDiffTimer = null;
+      }
     }
   }
 

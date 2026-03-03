@@ -132,8 +132,11 @@ function parseWCBIResponse(input) {
   if (!packet) {
     return null;
   }
-  const payload = packet.slice(4, packet.length - 3).toString('utf8');
+  const payload = packet.slice(4, packet.length - 3).toString('utf8').trim();
   const value = parseInt(payload, 10);
+  if (isNaN(value)) {
+    return null;
+  }
   const result = {
     type: "WCBI",
     data: { balancingCellNumber: value }
