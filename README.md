@@ -53,6 +53,6 @@ VenusOS claims all serial devices by default and attempts to pair them with a pr
 curl -o /home/root/signalk-rec-bms-venusOS.sh https://raw.githubusercontent.com/ofernander/signalk-rec-bms/main/venus-os/signalk-rec-bms-venusOS.sh && bash /home/root/signalk-rec-bms-venusOS.sh
 ```
 
-The script will list your connected USB serial devices, you select which one is the usb to serial converter for your REC-BMS.
+The script will list your connected USB serial devices, you select which one is the usb to serial converter for your REC-BMS. Once complete, unplug and replug your RS485 adapter, then reboot the Cerbo device. 
 
-To uninstall: `bash /home/root/signalk-rec-bms-venusOS.sh --uninstall`
+To uninstall: `bash /home/root/signalk-rec-bms-venusOS.sh --uninstall` or select the last option in the script menu. 
