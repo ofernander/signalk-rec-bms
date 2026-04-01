@@ -366,7 +366,7 @@
     "expectedPackets": 1,
     "payloadSizes": [null],
     "parser": "parseERRLResponse",
-    "timeout": 3,
+    "timeout": 100,
     "description": "ERRL? returns error log data",
     "module": "erro"
   },

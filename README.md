@@ -44,3 +44,15 @@ Run the following command:
    ```bash
    npm install signalk-rec-bms
    ```
+
+## Victron Cerbo GX / Venus OS
+
+VenusOS claims all serial devices by default and attempts to pair them with a pre-defined service. This script works by telling VenusOS to ignore your usb to serial device & allowing you to use it with SignalK. 
+
+```bash
+curl -o ~/signalk-rec-bms-venusOS.sh https://raw.githubusercontent.com/ofernander/signalk-rec-bms/main/venus-os/signalk-rec-bms-venusOS.sh && bash ~/signalk-rec-bms-venusOS.sh
+```
+
+The script will list your connected USB serial devices, you select which one is the usb to serial converter for your REC-BMS.
+
+To uninstall: `bash ~/signalk-rec-bms-venusOS.sh --uninstall`
