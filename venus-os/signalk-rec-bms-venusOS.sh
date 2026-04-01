@@ -19,7 +19,7 @@ trap 'echo ""; echo "ERROR: Setup was interrupted unexpectedly. Run the script a
 STORED_SERIAL="/data/conf/signalk-rec-bms"
 UDEV_RULES="/etc/udev/rules.d/zz-signalk-rec-bms.rules"
 RC_LOCAL="/data/rc.local"
-SELF="/root/signalk-rec-bms-venusOS.sh"
+SELF="/home/root/signalk-rec-bms-venusOS.sh"
 
 
 # -------------------------------------------------------
@@ -248,8 +248,10 @@ udevadm trigger
 # -------------------------------------------------------
 echo "Installing boot hook..."
 
-cp "$0" "$SELF"
-chmod +x "$SELF"
+if [ "$(realpath $0)" != "$(realpath $SELF)" ]; then
+    cp "$0" "$SELF"
+    chmod +x "$SELF"
+fi
 
 if [ ! -f "$RC_LOCAL" ]; then
     echo "#!/bin/bash" > "$RC_LOCAL"
