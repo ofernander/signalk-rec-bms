@@ -15,7 +15,7 @@
     "name": "Oliver Fernander",
     "email": "oliver@fernander.net"
   },
-  "license": "ISC",
+  "license": "GPL-3.0",
   "dependencies": {
     "ws": "^8.18.1",
     "serialport": "^13.0.0",

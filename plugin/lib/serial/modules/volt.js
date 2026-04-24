@@ -141,7 +141,7 @@ function parseUBDIResponse(input) {
   const value = parseFloat(payload);
   const result = {
     type: "UBDI",
-    data: { cellVoltageDifference: value }
+    data: { endOfChargeCellDifference: value }
   };
   return result;
 }
@@ -293,7 +293,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.cellVoltageDifference`, value: d.cellVoltageDifference }
+            { path: `${prefix}.endOfChargeCellDifference`, value: d.endOfChargeCellDifference }
           ]
         }]
       };
@@ -342,7 +342,7 @@ module.exports = {
   parseMINHResponse,
   parseCHARResponse,
   parseCHISResponse,
-  //parseUBDIResponse,
+  parseUBDIResponse,
   parseCFVCResponse,
   parseRAZLResponse
 };

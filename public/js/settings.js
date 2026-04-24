@@ -44,7 +44,7 @@ export class BMSSettings {
       MINH: "minAllowedVoltageHysteresis",
       CHAR: "endChargeVoltage",
       CHIS: "endChargeHysteresis",
-      UBDI: "cellVoltageDifference",
+      UBDI: "endOfChargeCellDifference",
       CFVC: "floatVoltageCoefficient",
       RAZL: "maxAllowedCellVoltDiff",
       TMAX: "cellOverTempSwitchOff",
