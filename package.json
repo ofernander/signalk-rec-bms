@@ -1,6 +1,6 @@
 {
   "name": "signalk-rec-bms",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "SignalK plugin for REC-BMS",
   "main": "plugin/index.js",
   "scripts": {
