@@ -123,4 +123,10 @@
     gap: 15px;
     width: 100%;
   }
-  
+
+  .settings-cmd-description {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-left: 6px;
+    font-weight: 400;
+  }

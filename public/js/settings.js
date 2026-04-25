@@ -77,6 +77,47 @@ export class BMSSettings {
       DATE: "date",
       RSBR: "balancingCellNumber"
     };
+
+    this.commandToLabel = {
+      BVOL: "Balance end voltage",
+      BMIN: "Balancing start voltage",
+      CMAX: "Cell over-voltage switch-off",
+      MAXH: "Over-voltage switch-off hysteresis",
+      CMIN: "Cell under-voltage protection switch-off",
+      MINH: "Under-voltage switch-off hysteresis",
+      CHAR: "Cell end of charging voltage",
+      CHIS: "End of charging voltage hysteresis",
+      UBDI: "End of charging allowed cell voltage difference",
+      CFVC: "Float voltage coefficient",
+      RAZL: "Cells max difference",
+      TMAX: "Cell over-temperature switch-off",
+      TMIN: "Under-temperature charging disable",
+      TBAL: "BMS over-temperature switch-off",
+      BMTH: "BMS over-temperature switch-off hysteresis",
+      IOFF: "Current measurement zero offset",
+      IOJA: "Voltage to current coefficient",
+      CYCL: "Number of full battery pack cycles",
+      CAPA: "Battery pack capacity",
+      CHEM: "Li-ion chemistry",
+      SOCH: "SOC end of charge hysteresis",
+      SOCS: "SOC manual re-set",
+      CHAC: "Charge coefficient (0-5C)",
+      DCHC: "Discharge coefficient (0-5C)",
+      STRN: "Number of inverter devices on the bus",
+      MAXC: "Maximum charge current per inverter device",
+      MAXD: "Maximum discharge current per inverter device",
+      CLOW: "Cell under-voltage discharge protection",
+      ERLD: "Error log delete",
+      VMAX: "Number of exceeded values of CMAX",
+      VMIN: "Number of exceeded values of CMIN",
+      CAL1: "Cell 1 calibration offset",
+      CAL2: "Cell 2 calibration offset",
+      CAL3: "Cell 3 calibration offset",
+      CAL4: "Cell 4 calibration offset",
+      SERI: "ABMS serial number",
+      TIME: "ABMS RTC time",
+      DATE: "ABMS RTC date"
+    };
   }
 
   init() {
@@ -104,7 +145,7 @@ export class BMSSettings {
         const wrapper = document.createElement("div");
         wrapper.className = "settings-grid-group";
         wrapper.innerHTML = `
-          <label for="${cmd}" class="settings-label settings-grid-label">${cmd}</label>
+          <label for="${cmd}" class="settings-label settings-grid-label">${cmd}<span class="settings-cmd-description">- ${this.commandToLabel[cmd] || ''}</span></label>
           <div class="settings-grid-input-row">
             <input type="text" id="${cmd}" class="settings-input settings-grid-input">
             <button class="settings-button primary settings-grid-button" data-command="${cmd}">Set</button>
