@@ -90,7 +90,9 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.capacity`, value: d.capacity }
+            // Published in Ah. SK spec wants Joules for capacity.nominal but Ah is
+            // what the BMS provides and what is meaningful for battery management.
+            { path: `${prefix}.capacity.nominal`, value: d.capacity }
           ]
         }]
       };

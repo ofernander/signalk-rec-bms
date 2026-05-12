@@ -123,20 +123,22 @@ function parsePTEMResponse(packets) {
   }
 
   const sizePacket = packets.find(p => p[3] === 1);
-  const dataPacket = packets.find(p => p[3] >= 4 && (p.length - 7) % 4 === 0); // Payload divisible by 4 bytes
+  const dataPackets = packets.filter(p => p[3] !== 1);
 
-  if (!sizePacket || !dataPacket) {
+  if (!sizePacket || dataPackets.length === 0) {
     return null;
   }
 
   const numBMSUnits = parseInt(sizePacket.slice(4, 5).toString('utf8'), 10);
-  const floatCount = (dataPacket.length - 7) / 4;
 
   let temperature = [];
-  for (let i = 0; i < floatCount; i++) {
-    const offset = 4 + i * 4;
-    temperature.push(dataPacket.readFloatLE(offset));
-  }
+  dataPackets.forEach(packet => {
+    const floatCount = (packet.length - 7) / 4;
+    for (let i = 0; i < floatCount; i++) {
+      const offset = 4 + i * 4;
+      temperature.push(packet.readFloatLE(offset));
+    }
+  });
 
   const result = {
     type: "PTEM",
@@ -235,7 +237,7 @@ function getDelta(parsed, options, app) {
   let vesselId = (typeof app.getSelfId === 'function') ? app.getSelfId() : (app.selfId || "self");
   const context = `vessels.${vesselId}`;
   const prefix = options.deltaPrefix || "electrical.batteries.bms";
-  
+
   let delta = null;
   switch (parsed.type) {
     case "LCD1": {
@@ -245,13 +247,13 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.minCellVoltage`, value: d.minVoltage },
-            { path: `${prefix}.maxCellVoltage`, value: d.maxVoltage },
-            { path: `${prefix}.current`, value: d.current },
-            //{ path: `${prefix}.cellTemperature`, value: d.temperature },
-            { path: `${prefix}.voltage`, value: d.packVoltage },
-            { path: `${prefix}.stateOfCharge`, value: d.soc },
-            { path: `${prefix}.stateOfHealth`, value: d.soh }
+            { path: `${prefix}.minCellVoltage`,          value: d.minVoltage },
+            { path: `${prefix}.maxCellVoltage`,          value: d.maxVoltage },
+            { path: `${prefix}.current`,                 value: d.current },
+            //{ path: `${prefix}.temperature`,           value: d.temperature },
+            { path: `${prefix}.voltage`,                 value: d.packVoltage },
+            { path: `${prefix}.capacity.stateOfCharge`,  value: d.soc },
+            { path: `${prefix}.capacity.stateOfHealth`,  value: d.soh }
           ]
         }]
       };
@@ -264,11 +266,12 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.slaveAddress`, value: d.minCellBmsAddress },
-            { path: `${prefix}.slaveCellCount`, value: d.maxCellNumber - d.minCellNumber + 1 },
-            { path: `${prefix}.maxTempSensBmsAddress`, value: d.maxTempSensBmsAddress },
-            { path: `${prefix}.maxTempSensNumber`, value: d.maxTempSensNumber },
-            { path: `${prefix}.ampHourUsed`, value: d.ah }
+            { path: `${prefix}.slaveAddress`,              value: d.minCellBmsAddress },
+            { path: `${prefix}.minCellNumber`,             value: d.minCellNumber },
+            { path: `${prefix}.maxCellNumber`,             value: d.maxCellNumber },
+            { path: `${prefix}.maxTempSensBmsAddress`,     value: d.maxTempSensBmsAddress },
+            { path: `${prefix}.maxTempSensNumber`,         value: d.maxTempSensNumber },
+            { path: `${prefix}.capacity.dischargeSinceFull`, value: d.ah * 3600 }
           ]
         }]
       };
@@ -308,11 +311,9 @@ function getDelta(parsed, options, app) {
       let values = [
         { path: `${prefix}.numBMSUnits`, value: d.numBMSUnits }
       ];
-    
       d.temperature.forEach((temp, index) => {
         values.push({ path: `${prefix}.cellTemperature${index + 1}`, value: temp });
       });
-    
       delta = {
         context,
         updates: [{
@@ -321,7 +322,7 @@ function getDelta(parsed, options, app) {
         }]
       };
       break;
-    }    
+    }
     case "RINT": {
       const d = parsed.data;
       let values = [
@@ -361,13 +362,13 @@ function getDelta(parsed, options, app) {
           values: [
             { path: `${prefix}.errorPresent`, value: d.hasError },
             { path: `${prefix}.errorAddress`, value: d.bmsUnit },
-            { path: `${prefix}.errorCode`, value: d.errorCode },
-            { path: `${prefix}.errorSource`, value: d.cellOrSensor }
+            { path: `${prefix}.errorCode`,    value: d.errorCode },
+            { path: `${prefix}.errorSource`,  value: d.cellOrSensor }
           ]
         }]
       };
       break;
-    }    
+    }
 
     default:
       break;
@@ -379,15 +380,15 @@ function getDelta(parsed, options, app) {
    4. EXPORTS
    Export functions for building commands, parsing responses, and building deltas.
    ============================================================================ */
-   module.exports = {
-    buildCommand,
-    getDelta,
-    parseLCD1Response,
-    parseLCD3Response,
-    parseIDNResponse,
-    parseCELLResponse,
-    parsePTEMResponse,
-    parseRINTResponse,
-    parseBTEMResponse,
-    parseERROResponse
-  };  
+module.exports = {
+  buildCommand,
+  getDelta,
+  parseLCD1Response,
+  parseLCD3Response,
+  parseIDNResponse,
+  parseCELLResponse,
+  parsePTEMResponse,
+  parseRINTResponse,
+  parseBTEMResponse,
+  parseERROResponse
+};

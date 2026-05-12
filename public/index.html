@@ -24,19 +24,27 @@
     <div class="stats-panel">
       <div class="metric-box">
         <div class="metric-label">Capacity</div>
-        <div class="metric-value" id="capacity">--.-- Ah</div>
+        <div class="metric-value" id="capacity-nominal">--.-- Ah</div>
       </div>
       <div class="metric-box">
         <div class="metric-label">Amp Hours Remaining</div>
-        <div class="metric-value" id="ampHourRemaining">--.-- Ah</div>
+        <div class="metric-value" id="capacity-remaining">--.-- Ah</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">Time Remaining</div>
+        <div class="metric-value" id="capacity-timeRemaining">--.-- h</div>
       </div>
       <div class="metric-box">
         <div class="metric-label">Amp Hours Used</div>
-        <div class="metric-value" id="ampHourUsed">--.-- Ah</div>
+        <div class="metric-value" id="capacity-dischargeSinceFull">--.-- Ah</div>
       </div>
       <div class="metric-box">
         <div class="metric-label">State of Charge</div>
         <div class="metric-value" id="stateOfCharge">-- %</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">State of Health</div>
+        <div class="metric-value" id="stateOfHealth">-- %</div>
       </div>
       <div class="metric-box">
         <div class="metric-label">Pack Voltage</div>
@@ -77,39 +85,38 @@
         <div id="cell-towers" class="towers-container"></div>
       </div>
       
-<div id="settings-view" class="content-view">
-  <div class="settings-container">
-    <h2 class="settings-title">BMS Settings</h2>
-    <div class="settings-section" id="settings-command-grid">
-    </div>
-    <div class="settings-section" style="margin-top: 25px;">
-      <h3>Manual BMS Command</h3>
-      <form id="command-form" class="settings-form-group">
-        <label for="command-input" class="settings-label">
-          Enter Command (e.g., <code>BVOL 3.25</code>)
-        </label>
-        <input
-          type="text"
-          id="command-input"
-          class="settings-input"
-          placeholder="Enter command like 'BVOL 3.25'"
-          required
-        />
-        <div class="settings-buttons">
-          <button type="submit" class="settings-button primary">Send Command</button>
+      <div id="settings-view" class="content-view">
+        <div class="settings-container">
+          <h2 class="settings-title">BMS Settings</h2>
+          <div class="settings-section" id="settings-command-grid">
+          </div>
+          <div class="settings-section" style="margin-top: 25px;">
+            <h3>Manual BMS Command</h3>
+            <form id="command-form" class="settings-form-group">
+              <label for="command-input" class="settings-label">
+                Enter Command (e.g., <code>BVOL 3.25</code>)
+              </label>
+              <input
+                type="text"
+                id="command-input"
+                class="settings-input"
+                placeholder="Enter command like 'BVOL 3.25'"
+                required
+              />
+              <div class="settings-buttons">
+                <button type="submit" class="settings-button primary">Send Command</button>
+              </div>
+            </form>
+            <div
+              id="command-response"
+              class="settings-form-group settings-label"
+              style="margin-top: 10px;"
+            ></div>
+          </div>
         </div>
-      </form>
-      <div
-        id="command-response"
-        class="settings-form-group settings-label"
-        style="margin-top: 10px;"
-      ></div>
+      </div>
     </div>
-
   </div>
-</div>
-
-
 
   <div class="info-box">
     <a href="https://github.com/ofernander/signalk-rec-bms" target="_blank">signalk-rec-bms on GitHub</a>
@@ -123,7 +130,7 @@
       document.getElementById('nav-settings').classList.remove('active');
     });
 
-      document.getElementById('nav-settings').addEventListener('click', function() {
+    document.getElementById('nav-settings').addEventListener('click', function() {
       document.getElementById('status-view').classList.remove('active');
       document.getElementById('settings-view').classList.add('active');
       document.getElementById('nav-settings').classList.add('active');

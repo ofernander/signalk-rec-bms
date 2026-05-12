@@ -9,29 +9,32 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
     ? (base.endsWith('.') ? base : base + '.')
     : "";
 
+  // 'capacity' is stored internally in Ah (as received from capacity.nominal).
+  // 'ampHourUsed' is stored internally in Ah (converted from Coulombs off the stream).
+
   function computeAndSendDeltas() {
     if ([voltage, current, ampHourUsed, capacity].every(v => typeof v === 'number')) {
       const power = voltage * current;
       const ahRemaining = capacity - ampHourUsed;
 
       const values = [
-        { path: prefix + 'power',             value: power },
-        { path: prefix + 'ampHourRemaining', value: ahRemaining }
+        { path: prefix + 'power',              value: power },
+        { path: prefix + 'capacity.remaining', value: ahRemaining }
       ];
 
       if (current > 0 && ahRemaining < capacity) {
         const missingAh = capacity - ahRemaining;
         const timeToFull = (missingAh / current) * 3600;
-        values.push({ path: prefix + 'timeToFull', value: timeToFull });
-        values.push({ path: prefix + 'timeToEmpty', value: 0 });
+        values.push({ path: prefix + 'timeToFull',              value: timeToFull });
+        values.push({ path: prefix + 'capacity.timeRemaining',  value: 0 });
       } else if (current < 0 && ahRemaining > 0) {
         const timeToEmpty = (ahRemaining / Math.abs(current)) * 3600;
-        values.push({ path: prefix + 'timeToFull', value: 0 });
-        values.push({ path: prefix + 'timeToEmpty', value: timeToEmpty });
+        values.push({ path: prefix + 'timeToFull',              value: 0 });
+        values.push({ path: prefix + 'capacity.timeRemaining',  value: timeToEmpty });
       } else {
         // fallback when current is 0 or data is abnormal
-        values.push({ path: prefix + 'timeToFull', value: 0 });
-        values.push({ path: prefix + 'timeToEmpty', value: 0 });
+        values.push({ path: prefix + 'timeToFull',              value: 0 });
+        values.push({ path: prefix + 'capacity.timeRemaining',  value: 0 });
       }
 
       sendDeltaCallback({
@@ -46,10 +49,12 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
   app.streambundle.getSelfStream(prefix + 'current').forEach(v => {
     if (typeof v === 'number') { current = v; computeAndSendDeltas(); }
   });
-  app.streambundle.getSelfStream(prefix + 'ampHourUsed').forEach(v => {
-    if (typeof v === 'number') { ampHourUsed = v; computeAndSendDeltas(); }
+  app.streambundle.getSelfStream(prefix + 'capacity.dischargeSinceFull').forEach(v => {
+    // value on stream is Coulombs; convert to Ah for internal arithmetic
+    if (typeof v === 'number') { ampHourUsed = v / 3600; computeAndSendDeltas(); }
   });
-  app.streambundle.getSelfStream(prefix + 'capacity').forEach(v => {
+  app.streambundle.getSelfStream(prefix + 'capacity.nominal').forEach(v => {
+    // value on stream is Ah
     if (typeof v === 'number') { capacity = v; computeAndSendDeltas(); }
   });
 
