@@ -54,6 +54,11 @@ module.exports = {
       title: "Delta Path Prefix",
       type: "string",
       default: "electrical.batteries.bms"
+    },
+    numTempSensors: {
+      title: "Number of Temperature Sensors",
+      type: "number",
+      default: 1
     }
   }
 };

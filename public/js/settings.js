@@ -54,7 +54,7 @@ export class BMSSettings {
       IOFF: "currentSensorOffset",
       IOJA: "currentSensorCoefficient",
       CYCL: "batteryCycleCount",
-      CAPA: "capacity",
+      CAPA: "capacity.nominal",
       CHEM: "chemistry",
       SOCH: "socHysteresis",
       SOCS: "socReset",
@@ -155,24 +155,23 @@ export class BMSSettings {
       });
     });
 
-  container.querySelectorAll("button[data-command]").forEach(button => {
-    button.addEventListener("click", async () => {
-      const cmd = button.getAttribute("data-command");
-      const inputField = document.getElementById(cmd);
-      const value = inputField.value.trim();
-      if (!value) return;
-  
-      const response = await this.sendCommand(`${cmd} ${value}`);
-      const path = this.commandToDeltaPath[cmd];
-      const success = response && typeof response === 'object' &&
-      Object.keys(response).length > 0;
+    container.querySelectorAll("button[data-command]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const cmd = button.getAttribute("data-command");
+        const inputField = document.getElementById(cmd);
+        const value = inputField.value.trim();
+        if (!value) return;
 
-      inputField.value = success ? "OK" : "FAIL";
-  
-      setTimeout(() => this.prefillValues(), 5000);
+        const response = await this.sendCommand(`${cmd} ${value}`);
+        const success = response && typeof response === 'object' &&
+          Object.keys(response).length > 0;
+
+        inputField.value = success ? "OK" : "FAIL";
+
+        setTimeout(() => this.prefillValues(), 5000);
+      });
     });
-  });
-}  
+  }
 
   async prefillValues() {
     try {
@@ -185,7 +184,10 @@ export class BMSSettings {
           if (!field) continue;
 
           const path = this.commandToDeltaPath[cmd];
-          const val = bmsData[path]?.value;
+          if (!path) continue;
+
+          // Support dot-notation paths (e.g. "capacity.nominal")
+          const val = path.split('.').reduce((obj, key) => obj?.[key], bmsData)?.value;
 
           if (val !== undefined) {
             field.value = val;

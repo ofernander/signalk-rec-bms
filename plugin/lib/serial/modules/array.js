@@ -266,11 +266,11 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.slaveAddress`,              value: d.minCellBmsAddress },
-            { path: `${prefix}.minCellNumber`,             value: d.minCellNumber },
-            { path: `${prefix}.maxCellNumber`,             value: d.maxCellNumber },
-            { path: `${prefix}.maxTempSensBmsAddress`,     value: d.maxTempSensBmsAddress },
-            { path: `${prefix}.maxTempSensNumber`,         value: d.maxTempSensNumber },
+            { path: `${prefix}.slaveAddress`,                value: d.minCellBmsAddress },
+            { path: `${prefix}.minCellNumber`,               value: d.minCellNumber },
+            { path: `${prefix}.maxCellNumber`,               value: d.maxCellNumber },
+            { path: `${prefix}.maxTempSensBmsAddress`,       value: d.maxTempSensBmsAddress },
+            { path: `${prefix}.maxTempSensNumber`,           value: d.maxTempSensNumber },
             { path: `${prefix}.capacity.dischargeSinceFull`, value: d.ah * 3600 }
           ]
         }]
@@ -308,10 +308,12 @@ function getDelta(parsed, options, app) {
     }
     case "PTEM": {
       const d = parsed.data;
+      const sensorCount = (options && options.numTempSensors) ? options.numTempSensors : 1;
+      const temperatures = d.temperature.slice(0, sensorCount);
       let values = [
         { path: `${prefix}.numBMSUnits`, value: d.numBMSUnits }
       ];
-      d.temperature.forEach((temp, index) => {
+      temperatures.forEach((temp, index) => {
         values.push({ path: `${prefix}.cellTemperature${index + 1}`, value: temp });
       });
       delta = {
