@@ -294,14 +294,18 @@ function getDelta(parsed, options, app) {
       let values = [
         { path: `${prefix}.numBMSUnits`, value: d.numBMSUnits }
       ];
+      let metaEntries = [];
       d.cellVoltages.forEach((voltage, index) => {
-        values.push({ path: `${prefix}.cellVoltage${index + 1}`, value: voltage });
+        const path = `${prefix}.cellVoltage${index + 1}`;
+        values.push({ path, value: voltage });
+        metaEntries.push({ path, value: { units: "V", description: `Voltage of cell ${index + 1}` } });
       });
       delta = {
         context,
         updates: [{
           timestamp: new Date().toISOString(),
-          values: values
+          values,
+          meta: metaEntries
         }]
       };
       break;
@@ -313,14 +317,18 @@ function getDelta(parsed, options, app) {
       let values = [
         { path: `${prefix}.numBMSUnits`, value: d.numBMSUnits }
       ];
+      let metaEntries = [];
       temperatures.forEach((temp, index) => {
-        values.push({ path: `${prefix}.cellTemperature${index + 1}`, value: temp });
+        const path = `${prefix}.cellTemperature${index + 1}`;
+        values.push({ path, value: temp + 273.15 });
+        metaEntries.push({ path, value: { units: "K", description: `Temperature of sensor ${index + 1}` } });
       });
       delta = {
         context,
         updates: [{
           timestamp: new Date().toISOString(),
-          values: values
+          values,
+          meta: metaEntries
         }]
       };
       break;
@@ -330,14 +338,18 @@ function getDelta(parsed, options, app) {
       let values = [
         { path: `${prefix}.numBMSUnits`, value: d.numBMSUnits }
       ];
+      let metaEntries = [];
       d.resistances.forEach((res, index) => {
-        values.push({ path: `${prefix}.cellResistance${index + 1}`, value: res });
+        const path = `${prefix}.cellResistance${index + 1}`;
+        values.push({ path, value: res });
+        metaEntries.push({ path, value: { units: "Ohm", description: `Internal DC resistance of cell ${index + 1}` } });
       });
       delta = {
         context,
         updates: [{
           timestamp: new Date().toISOString(),
-          values: values
+          values,
+          meta: metaEntries
         }]
       };
       break;
@@ -349,7 +361,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.bmsTemperature`, value: d.bmsTemperature }
+            { path: `${prefix}.bmsTemperature`, value: d.bmsTemperature + 273.15 }
           ]
         }]
       };

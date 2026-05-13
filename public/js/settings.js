@@ -1,5 +1,7 @@
 export class BMSSettings {
   constructor() {
+    this.tempCommands = new Set(['TMAX', 'TMIN', 'TBAL', 'BMTH']);
+
     this.commandGroups = [
       {
         title: "Voltage Settings",
@@ -72,7 +74,7 @@ export class BMSSettings {
       CAL2: "calibrationOffsetCell2",
       CAL3: "calibrationOffsetCell3",
       CAL4: "calibrationOffsetCell4",
-      SERI: "name",
+      SERI: "deviceName",
       TIME: "time",
       DATE: "date",
       RSBR: "balancingCellNumber"
@@ -190,7 +192,10 @@ export class BMSSettings {
           const val = path.split('.').reduce((obj, key) => obj?.[key], bmsData)?.value;
 
           if (val !== undefined) {
-            field.value = val;
+            // Temperature values are stored in Kelvin; display in °C for user
+            field.value = this.tempCommands.has(cmd)
+              ? (val - 273.15).toFixed(3)
+              : val;
           }
         }
       }

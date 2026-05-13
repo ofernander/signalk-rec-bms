@@ -120,8 +120,19 @@ class BMSSystem {
       this.dom.metricElements['cellVoltageDifference'].textContent = v !== null ? `${v.toFixed(4)}V` : "--";
     }
 
-    setValue(this.dom.metricElements['bmsTemperature'], this.liveData.bmsTemperature, "°C");
-    setValue(this.dom.metricElements['cellTemperature1'], this.liveData.cellTemperature1, "°C");
+    // Values arrive in Kelvin; subtract 273.15 for °C display
+    // Note: stopgap until frontend rewrite — SK will handle unit display natively
+    setValue(
+      this.dom.metricElements['bmsTemperature'],
+      this.liveData.bmsTemperature !== null ? this.liveData.bmsTemperature - 273.15 : null,
+      "°C"
+    );
+    setValue(
+      this.dom.metricElements['cellTemperature1'],
+      this.liveData.cellTemperature1 !== null ? this.liveData.cellTemperature1 - 273.15 : null,
+      "°C"
+    );
+
     setValue(this.dom.metricElements['maxCellVoltage'], this.liveData.maxCellVoltage, "V");
     setValue(this.dom.metricElements['minCellVoltage'], this.liveData.minCellVoltage, "V");
 

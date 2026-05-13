@@ -208,7 +208,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.name`, value: "1A-" + d.abmsSerialNumber }
+            { path: `${prefix}.deviceName`, value: "1A-" + d.abmsSerialNumber }
           ]
         }]
       };

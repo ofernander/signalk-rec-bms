@@ -81,7 +81,7 @@ function getDelta(parsed, options, app) {
   let vesselId = (typeof app.getSelfId === 'function') ? app.getSelfId() : (app.selfId || "self");
   const context = `vessels.${vesselId}`;
   const prefix = options.deltaPrefix || "electrical.batteries.bms";
-  
+
   let delta = null;
   switch (parsed.type) {
     case "TMAX": {
@@ -91,7 +91,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.cellOverTempSwitchOff`, value: d.cellOverTempSwitchOff }
+            { path: `${prefix}.cellOverTempSwitchOff`, value: d.cellOverTempSwitchOff + 273.15 }
           ]
         }]
       };
@@ -104,7 +104,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.underTempChargeDisable`, value: d.underTempChargeDisable }
+            { path: `${prefix}.underTempChargeDisable`, value: d.underTempChargeDisable + 273.15 }
           ]
         }]
       };
@@ -117,7 +117,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.bmsOverTempSwitchOff`, value: d.bmsOverTempSwitchOff }
+            { path: `${prefix}.bmsOverTempSwitchOff`, value: d.bmsOverTempSwitchOff + 273.15 }
           ]
         }]
       };
@@ -130,7 +130,7 @@ function getDelta(parsed, options, app) {
         updates: [{
           timestamp: new Date().toISOString(),
           values: [
-            { path: `${prefix}.bmsOverTempSwitchOffHysteresis`, value: d.bmsOverTempSwitchOffHysteresis }
+            { path: `${prefix}.bmsOverTempSwitchOffHysteresis`, value: d.bmsOverTempSwitchOffHysteresis + 273.15 }
           ]
         }]
       };
