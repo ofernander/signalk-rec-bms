@@ -45,7 +45,7 @@ module.exports = function(app) {
       { path: `${p}.endChargeVoltage`,               value: { units: "V",     description: "Cell end-of-charge voltage" } },
       { path: `${p}.endChargeHysteresis`,            value: { units: "V",     description: "End-of-charge voltage hysteresis per cell" } },
       { path: `${p}.endOfChargeCellDifference`,      value: { units: "V",     description: "Maximum allowed cell voltage difference at end of charge" } },
-      { path: `${p}.floatVoltageCoefficient`,        value: { units: "ratio", description: "Float voltage coefficient (multiplier on charge voltage)" } },
+      { path: `${p}.floatVoltageCoefficient`,        value: {                 description: "Float voltage coefficient (multiplier on charge voltage)" } },
       { path: `${p}.maxAllowedCellVoltDiff`,         value: { units: "V",     description: "Maximum allowed cell voltage difference during operation" } },
       // Temperature thresholds
       { path: `${p}.cellOverTempSwitchOff`,          value: { units: "K",     description: "Cell over-temperature switch-off threshold" } },
@@ -54,7 +54,7 @@ module.exports = function(app) {
       { path: `${p}.bmsOverTempSwitchOffHysteresis`, value: { units: "K",     description: "BMS board over-temperature switch-off hysteresis" } },
       // Current sensor
       { path: `${p}.currentSensorOffset`,            value: { units: "A",     description: "Current measurement zero offset" } },
-      { path: `${p}.currentSensorCoefficient`,       value: { units: "ratio", description: "Voltage-to-current conversion coefficient" } },
+      { path: `${p}.currentSensorCoefficient`,       value: { units: "A/V",   description: "Voltage-to-current conversion coefficient" } },
       // SOC
       { path: `${p}.socHysteresis`,                  value: { units: "ratio", description: "SOC end-of-charge hysteresis (0-1)" } },
       { path: `${p}.socReset`,                       value: { units: "ratio", description: "SOC value applied on manual reset (0-1)" } },
@@ -64,8 +64,8 @@ module.exports = function(app) {
       { path: `${p}.opto2Voltage`,                   value: { units: "V",     description: "Optocoupler 2 activation voltage threshold" } },
       { path: `${p}.opto2Hysteresis`,                value: { units: "V",     description: "Optocoupler 2 voltage hysteresis" } },
       // Victron/Wakespeed
-      { path: `${p}.chargeCoefficient`,              value: { units: "ratio", description: "Charge current coefficient (0-5C)" } },
-      { path: `${p}.dischargeCoefficient`,           value: { units: "ratio", description: "Discharge current coefficient (0-5C)" } },
+      { path: `${p}.chargeCoefficient`,              value: {                 description: "Charge current coefficient (0-5C)" } },
+      { path: `${p}.dischargeCoefficient`,           value: {                 description: "Discharge current coefficient (0-5C)" } },
       { path: `${p}.numberOfInverterDevices`,        value: {                 description: "Number of inverter/charger devices on the CAN bus" } },
       { path: `${p}.maxChargeCurrent`,               value: { units: "A",     description: "Maximum charge current per inverter device" } },
       { path: `${p}.maxDischargeCurrent`,            value: { units: "A",     description: "Maximum discharge current per inverter device" } },
