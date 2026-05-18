@@ -70,6 +70,9 @@ function parseLCD3Response(input) {
 
 function parseIDNResponse(input) {
   const packet = Array.isArray(input) ? input[0] : input;
+  if (!packet) {
+    return null;
+  }
   const payload = packet.slice(4, packet.length - 3).toString('utf8');
   const result = {
     type: "IDN",
@@ -390,10 +393,6 @@ function getDelta(parsed, options, app) {
   return delta;
 }
 
-/* ============================================================================
-   4. EXPORTS
-   Export functions for building commands, parsing responses, and building deltas.
-   ============================================================================ */
 module.exports = {
   buildCommand,
   getDelta,

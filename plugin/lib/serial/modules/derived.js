@@ -12,6 +12,8 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
   // 'capacity' is stored internally in Ah (as received from capacity.nominal).
   // 'ampHourUsed' is stored internally in Ah (converted from Coulombs off the stream).
 
+  const subscriptions = [];
+
   function computeAndSendDeltas() {
     if ([voltage, current, ampHourUsed, capacity].every(v => typeof v === 'number')) {
       const power = voltage * current;
@@ -43,20 +45,20 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
     }
   }
 
-  app.streambundle.getSelfStream(prefix + 'voltage').forEach(v => {
+  subscriptions.push(app.streambundle.getSelfStream(prefix + 'voltage').forEach(v => {
     if (typeof v === 'number') { voltage = v; computeAndSendDeltas(); }
-  });
-  app.streambundle.getSelfStream(prefix + 'current').forEach(v => {
+  }));
+  subscriptions.push(app.streambundle.getSelfStream(prefix + 'current').forEach(v => {
     if (typeof v === 'number') { current = v; computeAndSendDeltas(); }
-  });
-  app.streambundle.getSelfStream(prefix + 'capacity.dischargeSinceFull').forEach(v => {
+  }));
+  subscriptions.push(app.streambundle.getSelfStream(prefix + 'capacity.dischargeSinceFull').forEach(v => {
     // value on stream is Coulombs; convert to Ah for internal arithmetic
     if (typeof v === 'number') { ampHourUsed = v / 3600; computeAndSendDeltas(); }
-  });
-  app.streambundle.getSelfStream(prefix + 'capacity.nominal').forEach(v => {
+  }));
+  subscriptions.push(app.streambundle.getSelfStream(prefix + 'capacity.nominal').forEach(v => {
     // value on stream is Ah
     if (typeof v === 'number') { capacity = v; computeAndSendDeltas(); }
-  });
+  }));
 
   // ---- Cell diff logic ----
   let totalCells = 0;
@@ -73,7 +75,7 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
   const CELL_DIFF_RETRY_MS = 200;
   const CELL_DIFF_MAX_WAIT_MS = 8000;
 
-  app.streambundle.getSelfStream(prefix + 'numBMSUnits').forEach(units => {
+  subscriptions.push(app.streambundle.getSelfStream(prefix + 'numBMSUnits').forEach(units => {
     if (typeof units === 'number' && units > 0) {
       // If units changes (or first time), reset expectations and cached values
       if (units !== unitsExpected) {
@@ -95,13 +97,13 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
 
         subscribedCells.add(i);
         const cellPath = prefix + 'cellVoltage' + i;
-        app.streambundle.getSelfStream(cellPath).forEach(val => {
+        subscriptions.push(app.streambundle.getSelfStream(cellPath).forEach(val => {
           if (typeof val === 'number' && Number.isFinite(val)) {
             if (!firstCellSeenAtMs) firstCellSeenAtMs = Date.now();
             cellVoltages[i] = val;
             trySendCellDiff();
           }
-        });
+        }));
       }
 
       subscribedCellStreams = true;
@@ -109,7 +111,7 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
       // Attempt immediately in case we already have cached values after restart
       trySendCellDiff();
     }
-  });
+  }));
 
   function scheduleCellDiffRetry() {
     if (pendingCellDiffTimer) return;
@@ -173,6 +175,8 @@ module.exports = function Derived(app, sendDeltaCallback, config) {
   return {
     stop: () => {
       app.debug("[DERIVED] Stopping derived module");
+      if (pendingCellDiffTimer) clearTimeout(pendingCellDiffTimer);
+      subscriptions.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
     }
   };
 };

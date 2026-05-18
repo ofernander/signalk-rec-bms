@@ -5,137 +5,187 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SignalK-REC-BMS</title>
   <link rel="stylesheet" href="css/core.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/towers.css">
-  <link rel="stylesheet" href="css/settings.css">
-  <link rel="stylesheet" href="css/responsive.css">
-  <script type="module" src="js/main.js"></script>
 </head>
 <body>
-  <div class="header">
-    <div class="app-title">SignalK-REC-BMS</div>
-    <div class="nav-menu">
-      <div class="nav-item active" id="nav-status">Status</div>
-      <div class="nav-item" id="nav-settings">Settings</div>
-    </div>
-  </div>
+  <div class="container">
 
-  <div class="main-container">
-    <div class="stats-panel">
-      <div class="metric-box">
-        <div class="metric-label">Capacity</div>
-        <div class="metric-value" id="capacity-nominal">--.-- Ah</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Amp Hours Remaining</div>
-        <div class="metric-value" id="capacity-remaining">--.-- Ah</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Time Remaining</div>
-        <div class="metric-value" id="capacity-timeRemaining">--.-- h</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Amp Hours Used</div>
-        <div class="metric-value" id="capacity-dischargeSinceFull">--.-- Ah</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">State of Charge</div>
-        <div class="metric-value" id="stateOfCharge">-- %</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">State of Health</div>
-        <div class="metric-value" id="stateOfHealth">-- %</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Pack Voltage</div>
-        <div class="metric-value" id="voltage">--.-- V</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Current</div>
-        <div class="metric-value" id="current">--.-- A</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Power</div>
-        <div class="metric-value" id="power">--.-- W</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Min Cell Voltage</div>
-        <div class="metric-value" id="minCellVoltage">--.-- V</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Max Cell Voltage</div>
-        <div class="metric-value" id="maxCellVoltage">--.-- V</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Cell Voltage Difference</div>
-        <div class="metric-value" id="cellVoltageDifference">--.-- V</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">Battery Temperature</div>
-        <div class="metric-value" id="cellTemperature1">--.-- °C</div>
-      </div>
-      <div class="metric-box">
-        <div class="metric-label">BMS Temperature</div>
-        <div class="metric-value" id="bmsTemperature">--.-- °C</div>
-      </div>
-    </div>
-
-    <div class="data-panel">
-      <div id="status-view" class="content-view active">
-        <div id="cell-towers" class="towers-container"></div>
-      </div>
-      
-      <div id="settings-view" class="content-view">
-        <div class="settings-container">
-          <h2 class="settings-title">BMS Settings</h2>
-          <div class="settings-section" id="settings-command-grid">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-content">
+        <img src="assets/icons/signalk-rec-bms-icon_72x72.png" alt="BMS Icon" style="width:72px;height:72px;border-radius:6px;">
+        <h1>SignalK-REC-BMS</h1>
+        <label class="night-toggle" title="Night Mode">
+          <span class="night-toggle-label">Night</span>
+          <div class="night-toggle-switch">
+            <input type="checkbox" id="nightModeToggle">
+            <span class="night-toggle-slider"></span>
           </div>
-          <div class="settings-section" style="margin-top: 25px;">
-            <h3>Manual BMS Command</h3>
-            <form id="command-form" class="settings-form-group">
-              <label for="command-input" class="settings-label">
-                Enter Command (e.g., <code>BVOL 3.25</code>)
-              </label>
-              <input
-                type="text"
-                id="command-input"
-                class="settings-input"
-                placeholder="Enter command like 'BVOL 3.25'"
-                required
-              />
-              <div class="settings-buttons">
-                <button type="submit" class="settings-button primary">Send Command</button>
-              </div>
-            </form>
-            <div
-              id="command-response"
-              class="settings-form-group settings-label"
-              style="margin-top: 10px;"
-            ></div>
-          </div>
+        </label>
+        <div class="status-indicator">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="status-text" id="statusText">Connecting...</span>
         </div>
       </div>
     </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="status">Status</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+
+      <!-- Status Tab -->
+      <div id="status" class="tab-content active">
+        <div class="status-layout">
+
+          <!-- Sidebar -->
+          <div class="stats-sidebar">
+            <div class="stat-item">
+              <div class="stat-label">State of Charge</div>
+              <div class="stat-value" id="stateOfCharge">--%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">State of Health</div>
+              <div class="stat-value" id="stateOfHealth">--%</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Pack Voltage</div>
+              <div class="stat-value" id="voltage">-- V</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Current</div>
+              <div class="stat-value" id="current">-- A</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Power</div>
+              <div class="stat-value" id="power">-- W</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Capacity</div>
+              <div class="stat-value" id="capacity-nominal">-- Ah</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Remaining</div>
+              <div class="stat-value" id="capacity-remaining">-- Ah</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Used</div>
+              <div class="stat-value" id="capacity-dischargeSinceFull">-- Ah</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Time Remaining</div>
+              <div class="stat-value" id="capacity-timeRemaining">-- h</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Min Cell</div>
+              <div class="stat-value" id="minCellVoltage">-- V</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Max Cell</div>
+              <div class="stat-value" id="maxCellVoltage">-- V</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Cell Voltage Difference</div>
+              <div class="stat-value" id="cellVoltageDifference">-- V</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Cell Temp</div>
+              <div class="stat-value" id="cellTemperature1">-- °C</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">BMS Temp</div>
+              <div class="stat-value" id="bmsTemperature">-- °C</div>
+            </div>
+          </div>
+
+          <!-- Right panel -->
+          <div class="right-panel">
+
+            <!-- History chart card -->
+            <div class="card">
+              <div class="card-header">
+                <h2>History</h2>
+                <div class="chart-controls" style="margin-top: 8px;">
+                  <button class="chart-btn active" data-hours="1">1h</button>
+                  <button class="chart-btn" data-hours="6">6h</button>
+                  <button class="chart-btn" data-hours="12">12h</button>
+                  <button class="chart-btn" data-hours="24">24h</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="chart-wrapper">
+                  <div class="chart-empty" id="chartEmpty">Collecting data...</div>
+                  <canvas id="historyChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cell towers card -->
+            <div class="card towers-card">
+              <div class="card-header">
+                <h2>Cell Voltages</h2>
+              </div>
+              <div class="towers-card-body" id="cell-towers">
+                <div class="voltage-scale" id="voltageScale"></div>
+                <div class="limit-scale" id="limitScale"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settings" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h2>BMS Settings</h2>
+            <div class="card-subtitle">Read and write BMS configuration over serial</div>
+          </div>
+          <div class="card-body">
+            <div id="settings-command-grid"></div>
+
+            <div class="settings-section" style="margin-top: 28px;">
+              <h3>Manual Command</h3>
+              <div class="manual-command-row">
+                <input
+                  type="text"
+                  id="command-input"
+                  class="manual-command-input"
+                  placeholder="e.g. BVOL 3.45"
+                />
+                <button class="btn btn-primary" id="command-submit">Send</button>
+              </div>
+              <div class="command-response" id="command-response"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>SignalK-REC-BMS &nbsp;·&nbsp;
+        <a href="https://github.com/ofernander/signalk-rec-bms" target="_blank" rel="noopener">
+          <svg height="14" width="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          GitHub
+        </a>
+      </p>
+    </footer>
+
   </div>
 
-  <div class="info-box">
-    <a href="https://github.com/ofernander/signalk-rec-bms" target="_blank">signalk-rec-bms on GitHub</a>
-  </div>
-
-  <script>
-    document.getElementById('nav-status').addEventListener('click', function() {
-      document.getElementById('status-view').classList.add('active');
-      document.getElementById('settings-view').classList.remove('active');
-      document.getElementById('nav-status').classList.add('active');
-      document.getElementById('nav-settings').classList.remove('active');
-    });
-
-    document.getElementById('nav-settings').addEventListener('click', function() {
-      document.getElementById('status-view').classList.remove('active');
-      document.getElementById('settings-view').classList.add('active');
-      document.getElementById('nav-settings').classList.add('active');
-      document.getElementById('nav-status').classList.remove('active');
-    });
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="js/cells.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

@@ -1,6 +1,4 @@
 "use strict";
-const fs = require('fs');
-const path = require('path');
 const EventEmitter = require('events');
 const hexer = require('./hexer');
 const atlas = require('./atlas.json');
@@ -18,9 +16,14 @@ class CommandEngine extends EventEmitter {
 
   sendCommand(tag, targetAddress, rawCommandStr = null, options = {}) {
     return new Promise((resolve, reject) => {
+      // If a command is already in flight, reject unless caller explicitly forces
+      if (this.activeCommand && !options.force) {
+        return reject(new Error(`[ENGINE] Busy — command ${this.activeCommand.tag} in flight, dropping ${tag}`));
+      }
+
       let commandStr;
       let expectedPackets = 1;
-      let timeoutMs = 3000; 
+      let timeoutMs = 3000;
       let config = atlasMapping[tag];
 
       if (rawCommandStr) {
@@ -64,6 +67,7 @@ class CommandEngine extends EventEmitter {
         currentCommand.timeout = setTimeout(() => {
           const errMsg = `${tag} response timed out after ${timeoutMs} ms`;
           if (currentCommand && typeof currentCommand.reject === "function") {
+            this.activeCommand = null;
             currentCommand.reject(new Error(errMsg));
           }
         }, timeoutMs);

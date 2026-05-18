@@ -5,8 +5,6 @@ class Layer2 {
 	constructor() {
 		this.buffer = [];
 		this.stats = {
-			tx: 0,
-			txBytes: 0,
 			rx: 0,
 			rxBytes: 0,
 			badCRC: 0

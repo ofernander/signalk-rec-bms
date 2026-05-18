@@ -7,11 +7,12 @@ const schema = require('../schema');
 
 module.exports = function(app, publishDelta) {
   let ws;
-  const initialReconnectInterval = 30000;
+  const initialReconnectInterval = 5000;
   let currentReconnectInterval = initialReconnectInterval;
   const heartbeatInterval = 60000;
   let pingInterval;
   let shouldReconnect = true;
+  let isReconnecting = false;
   let heartbeatTimeout;
 
   function resetHeartbeat() {
@@ -27,10 +28,14 @@ module.exports = function(app, publishDelta) {
     app.debug("[WEBSOCKET] Connecting to: " + options.websocket.websocketURL);
     ws = new WebSocket(options.websocket.websocketURL);
 
+    // derivedState is scoped to this connection session — resets on each reconnect
+    const derivedState = {};
+
     ws.on('open', () => {
       app.setPluginStatus("Connected to BMS - waiting for serial number");
       app.debug("[WEBSOCKET] WebSocket connection opened.");
       currentReconnectInterval = initialReconnectInterval;
+      clearInterval(pingInterval);
       pingInterval = setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           app.debug("[WEBSOCKET] Sending ping.");
@@ -42,6 +47,7 @@ module.exports = function(app, publishDelta) {
 
     ws.on('pong', () => {
       app.debug("[WEBSOCKET] Received pong.");
+      resetHeartbeat();
     });
 
     ws.on('message', (data) => {
@@ -72,21 +78,21 @@ module.exports = function(app, publishDelta) {
 
         if (parsedData.type === "status") {
           app.debug("[WEBSOCKET] Processing status data.");
-          const statusValues = status(parsedData, prefix, options.statusDeltas) || [];
+          const statusValues = status(parsedData, prefix) || [];
           delta.updates[0].values.push(...statusValues);
         }
 
         if (parsedData.type === "settings") {
           app.debug("[WEBSOCKET] Processing settings data.");
-          const settingsValues = settings(parsedData, prefix, options.settingsDeltas) || [];
+          const settingsValues = settings(parsedData, prefix) || [];
           delta.updates[0].values.push(...settingsValues);
           if (parsedData.bms_name) {
-            app.setPluginStatus(`Connected to BMS ${parsedData.bms_name} - Connection Type: Websocket`);
+            app.setPluginStatus(`Connected to BMS ${parsedData.bms_name} - Connection Type: WebSocket`);
           }
         }
 
-        // Add derived values
-        const derivedValues = derived(parsedData, prefix) || [];
+        // Add derived values — pass session state to avoid module-scope leakage
+        const derivedValues = derived(parsedData, prefix, derivedState) || [];
         delta.updates[0].values.push(...derivedValues);
 
         // Filter out null/undefined
@@ -109,9 +115,10 @@ module.exports = function(app, publishDelta) {
       app.setPluginStatus("BMS disconnected - ERROR");
       app.debug("[WEBSOCKET] WebSocket closed.");
       clearInterval(pingInterval);
-      if (shouldReconnect) {
+      if (shouldReconnect && !isReconnecting) {
+        isReconnecting = true;
         app.debug("[WEBSOCKET] Reconnecting in " + currentReconnectInterval + " ms.");
-        setTimeout(() => connect(options), currentReconnectInterval);
+        setTimeout(() => { isReconnecting = false; connect(options); }, currentReconnectInterval);
         currentReconnectInterval = Math.min(currentReconnectInterval * 2, 60000);
       }
     });
@@ -120,12 +127,8 @@ module.exports = function(app, publishDelta) {
       app.setPluginStatus(`Error: ${error.message} - ERROR`);
       app.debug(`[WEBSOCKET] WebSocket error: "${error.message}", terminating connection.`);
       clearInterval(pingInterval);
+      isReconnecting = true;
       if (ws) ws.terminate();
-      if (shouldReconnect) {
-        app.debug("[WEBSOCKET] Reconnecting in " + currentReconnectInterval + " ms after error.");
-        setTimeout(() => connect(options), currentReconnectInterval);
-        currentReconnectInterval = Math.min(currentReconnectInterval * 2, 60000);
-      }
     });
   }
 
@@ -133,6 +136,7 @@ module.exports = function(app, publishDelta) {
     start: function(options) {
       app.debug("[WEBSOCKET] start() called.");
       shouldReconnect = true;
+      isReconnecting = false;
       currentReconnectInterval = initialReconnectInterval;
       connect(options);
     },
@@ -140,6 +144,7 @@ module.exports = function(app, publishDelta) {
       app.debug("[WEBSOCKET] stop() called.");
       shouldReconnect = false;
       clearInterval(pingInterval);
+      clearTimeout(heartbeatTimeout);
       if (ws) {
         ws.close();
         ws = null;

@@ -491,16 +491,6 @@
     "module": "abms"
   },
   {
-    "tag": "SERI2",
-    "command": "SERI?",
-    "expectedPackets": 1,
-    "payloadSizes": [null],
-    "parser": "parseSERIResponse",
-    "timeout": 1000,
-    "description": "SERI2? returns ABMS serial number (hidden duplicate)",
-    "module": "abms"
-  },
-  {
     "tag": "SWVR",
     "command": "SWVR?",
     "expectedPackets": 1,
@@ -549,5 +539,5 @@
     "timeout": 1000,
     "description": "WCBI? returns balancing cell number",
     "module": "abms"
-  } 
+  }
 ]

@@ -31,6 +31,8 @@ const moduleMapping = {
 module.exports = function(app, publishDelta) {
   let port, parser, engine;
   let derivedModule;
+  let pollingInterval;
+  let routeRegistered = false;
 
   function start(options) {
     app.debug("[SERIAL] start() called with options: " + JSON.stringify(options));
@@ -69,7 +71,7 @@ module.exports = function(app, publishDelta) {
       const commandList = atlas.map(entry => entry.tag);
       let currentIndex = 0;
 
-      setInterval(() => {
+      pollingInterval = setInterval(() => {
         const tag = commandList[currentIndex];
         currentIndex = (currentIndex + 1) % commandList.length;
 
@@ -86,58 +88,67 @@ module.exports = function(app, publishDelta) {
               if (moduleDelta) publishDelta(moduleDelta);
             }
           })
-          .catch(err => app.debug("[SERIAL] Error: " + err.message));
+          .catch(err => {
+            if (err.message.startsWith('[ENGINE] Busy')) {
+              app.debug("[SERIAL] Skipping " + tag + " — engine busy");
+            } else {
+              app.debug("[SERIAL] Error: " + err.message);
+            }
+          });
       }, 100);
 
-      // command endpoint 
-      app.post('/signalk/v1/bms/command', (req, res) => {
-        const { command } = req.body;
-        if (!command) return res.status(400).json({ error: "Missing command" });
+      if (!routeRegistered) {
+        routeRegistered = true;
+        app.post('/signalk/v1/bms/command', (req, res) => {
+          const { command } = req.body;
+          if (!command) return res.status(400).json({ error: "Missing command" });
 
-        const parts = command.trim().split(/\s+/);
-        let tag = parts[0];
-        const raw = command.trim();
-        const isQuery = tag.endsWith("?");
+          const parts = command.trim().split(/\s+/);
+          let tag = parts[0];
+          const raw = command.trim();
+          const isQuery = tag.endsWith("?");
 
-        if (isQuery) {
-          tag = tag.slice(0, -1);
-        }
+          if (isQuery) {
+            tag = tag.slice(0, -1);
+          }
 
-        const config = atlas.find(entry => entry.tag === tag);
+          const config = atlas.find(entry => entry.tag === tag);
 
-        if (config && config.module && moduleMapping[config.module]) {
-          const commandModule = moduleMapping[config.module];
-          const expectResponse = isQuery;
+          if (config && config.module && moduleMapping[config.module]) {
+            const commandModule = moduleMapping[config.module];
+            const expectResponse = isQuery;
 
-          engine.sendCommand(tag, options.serial.targetAddress, raw, { expectResponse })
-            .then(packets => {
-              if (expectResponse) {
-                const parsed = commandModule[config.parser]?.(packets);
-                res.json({
-                  command,
-                  response: parsed,
-                  rawPackets: packets.map(p => p.toString('hex'))
-                });
-              } else {
-                res.json({
-                  command,
-                  response: { status: "sent (no response expected)" }
-                });
-              }
-            })
-            .catch(err => {
-              res.status(500).json({ error: err.message, command });
-            });
-        } else {
-          res.status(400).json({ error: "Unknown or unsupported command" });
-        }
-      });
+            engine.sendCommand(tag, options.serial.targetAddress, raw, { expectResponse, force: true })
+              .then(packets => {
+                if (expectResponse) {
+                  const parsed = commandModule[config.parser]?.(packets);
+                  res.json({
+                    command,
+                    response: parsed,
+                    rawPackets: packets.map(p => p.toString('hex'))
+                  });
+                } else {
+                  res.json({
+                    command,
+                    response: { status: "sent (no response expected)" }
+                  });
+                }
+              })
+              .catch(err => {
+                res.status(500).json({ error: err.message, command });
+              });
+          } else {
+            res.status(400).json({ error: "Unknown or unsupported command" });
+          }
+        });
+      }
     });
 
     port.on('error', (err) => app.debug("[SERIAL] Error: " + err.message));
   }
 
   function stop() {
+    clearInterval(pollingInterval);
     if (port) port.close();
     if (derivedModule && typeof derivedModule.stop === 'function') derivedModule.stop();
   }
@@ -152,7 +163,7 @@ module.exports = function(app, publishDelta) {
         throw new Error("Unknown or unsupported command");
       }
       const commandModule = moduleMapping[config.module];
-      return engine.sendCommand(tag, targetAddress)
+      return engine.sendCommand(tag, targetAddress, null, { force: true })
         .then(packets => ({
           packets,
           parsed: commandModule[config.parser]?.(packets)

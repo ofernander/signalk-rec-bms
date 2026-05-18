@@ -1,16 +1,14 @@
-import { CellVisualizer } from './cells.js';
-import { BMSSettings } from './settings.js';
+'use strict';
 
-class BMSSystem {
+class BMSMonitor {
   constructor() {
-    this.config = window.appConfig || {};
-    this.prefix = this.config.deltaPrefix || "electrical.batteries.bms.";
-    this.liveData = this.createDataStructure();
-    this.dom = { metricElements: {} };
-  }
+    this.prefix = 'electrical.batteries.bms.';
+    this.ws = null;
+    this.reconnectDelay = 5000;
+    this.reconnectTimer = null;
+    this.shouldConnect = true;
 
-  createDataStructure() {
-    return {
+    this.live = {
       voltage: null,
       current: null,
       power: null,
@@ -20,186 +18,189 @@ class BMSSystem {
       'capacity.dischargeSinceFull': null,
       'capacity.nominal': null,
       'capacity.timeRemaining': null,
-      cellVoltages: {},
-      cellResistances: {},
       cellVoltageDifference: null,
       bmsTemperature: null,
       cellTemperature1: null,
       maxCellVoltage: null,
-      minCellVoltage: null
+      minCellVoltage: null,
+      maxAllowedCellVoltage: null,
+      minAllowedCellVoltage: null,
+      endChargeVoltage: null,
+      cellVoltages: {},
+      cellResistances: {}
     };
   }
 
   init() {
-    console.log("Initializing BMS Monitor...");
-    this.cacheDomElements();
-    this.setupTabSwitching();
+    this._initNightMode();
+    this._initTabs();
     CellVisualizer.init('cell-towers');
-    this.connectWebSocket();
+    BMSChartManager.init();
+    const settings = new BMSSettings();
+    settings.init();
+    this._connect();
   }
 
-  cacheDomElements() {
-    const metricMap = {
-      'voltage':                     'voltage',
-      'current':                     'current',
-      'power':                       'power',
-      'capacity.stateOfCharge':      'stateOfCharge',
-      'capacity.stateOfHealth':      'stateOfHealth',
-      'cellVoltageDifference':       'cellVoltageDifference',
-      'bmsTemperature':              'bmsTemperature',
-      'cellTemperature1':            'cellTemperature1',
-      'maxCellVoltage':              'maxCellVoltage',
-      'minCellVoltage':              'minCellVoltage',
-      'capacity.remaining':          'capacity-remaining',
-      'capacity.dischargeSinceFull': 'capacity-dischargeSinceFull',
-      'capacity.nominal':            'capacity-nominal',
-      'capacity.timeRemaining':      'capacity-timeRemaining'
-    };
-
-    Object.entries(metricMap).forEach(([key, id]) => {
-      this.dom.metricElements[key] = document.getElementById(id);
-      if (!this.dom.metricElements[key]) {
-        console.warn(`Missing metric element for key: ${key} (id: ${id})`);
-      }
+  // ---- Night mode ----
+  _initNightMode() {
+    const toggle = document.getElementById('nightModeToggle');
+    if (!toggle) return;
+    const saved = localStorage.getItem('bms-night-mode') === 'true';
+    if (saved) {
+      document.body.classList.add('night-mode');
+      toggle.checked = true;
+    }
+    toggle.addEventListener('change', () => {
+      document.body.classList.toggle('night-mode', toggle.checked);
+      localStorage.setItem('bms-night-mode', toggle.checked);
     });
   }
 
-  setupTabSwitching() {
-    const statusTab = document.getElementById('nav-status');
-    const settingsTab = document.getElementById('nav-settings');
-
-    if (!statusTab || !settingsTab) {
-      console.warn("Tab elements not found");
-      return;
-    }
-
-    statusTab.addEventListener('click', () => this.switchView('status'));
-    settingsTab.addEventListener('click', () => this.switchView('settings'));
-    this.switchView('status');
+  // ---- Tabs ----
+  _initTabs() {
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        const content = document.getElementById(target);
+        if (content) content.classList.add('active');
+      });
+    });
   }
 
-  switchView(view) {
-    const statusView = document.getElementById('status-view');
-    const settingsView = document.getElementById('settings-view');
+  // ---- WebSocket ----
+  _connect() {
+    if (!this.shouldConnect) return;
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${scheme}://${window.location.host}/signalk/v1/stream?subscribe=self`;
 
-    if (view === 'status') {
-      statusView?.classList.add('active');
-      settingsView?.classList.remove('active');
-      document.getElementById('nav-status')?.classList.add('active');
-      document.getElementById('nav-settings')?.classList.remove('active');
-    } else {
-      statusView?.classList.remove('active');
-      settingsView?.classList.add('active');
-      document.getElementById('nav-status')?.classList.remove('active');
-      document.getElementById('nav-settings')?.classList.add('active');
-    }
-  }
+    this.ws = new WebSocket(url);
 
-  updateMetrics() {
-    const setValue = (el, value, unit) => {
-      if (el) el.textContent = value !== null ? `${value.toFixed(2)}${unit}` : "--";
+    this.ws.onopen = () => {
+      console.log('[BMS] WebSocket connected');
+      this.reconnectDelay = 5000;
+      this._setStatus(true);
+      this.ws.send(JSON.stringify({
+        context: 'vessels.self',
+        subscribe: [{
+          path: 'electrical.batteries.bms.*',
+          period: 1000
+        }]
+      }));
     };
 
-    setValue(this.dom.metricElements['voltage'], this.liveData.voltage, "V");
-    setValue(this.dom.metricElements['current'], this.liveData.current, "A");
-    setValue(this.dom.metricElements['power'], this.liveData.power, "W");
+    this.ws.onmessage = (event) => {
+      try {
+        const delta = JSON.parse(event.data);
+        this._handleDelta(delta);
+      } catch (e) {
+        // ignore malformed messages
+      }
+    };
 
-    setValue(
-      this.dom.metricElements['capacity.stateOfCharge'],
-      this.liveData['capacity.stateOfCharge'] !== null ? this.liveData['capacity.stateOfCharge'] * 100 : null,
-      "%"
-    );
-    setValue(
-      this.dom.metricElements['capacity.stateOfHealth'],
-      this.liveData['capacity.stateOfHealth'] !== null ? this.liveData['capacity.stateOfHealth'] * 100 : null,
-      "%"
-    );
+    this.ws.onclose = () => {
+      this._setStatus(false);
+      if (this.shouldConnect) {
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectDelay = Math.min(this.reconnectDelay * 2, 60000);
+          this._connect();
+        }, this.reconnectDelay);
+      }
+    };
 
-    if (this.dom.metricElements['cellVoltageDifference']) {
-      const v = this.liveData.cellVoltageDifference;
-      this.dom.metricElements['cellVoltageDifference'].textContent = v !== null ? `${v.toFixed(4)}V` : "--";
-    }
-
-    // Values arrive in Kelvin; subtract 273.15 for °C display
-    // Note: stopgap until frontend rewrite — SK will handle unit display natively
-    setValue(
-      this.dom.metricElements['bmsTemperature'],
-      this.liveData.bmsTemperature !== null ? this.liveData.bmsTemperature - 273.15 : null,
-      "°C"
-    );
-    setValue(
-      this.dom.metricElements['cellTemperature1'],
-      this.liveData.cellTemperature1 !== null ? this.liveData.cellTemperature1 - 273.15 : null,
-      "°C"
-    );
-
-    setValue(this.dom.metricElements['maxCellVoltage'], this.liveData.maxCellVoltage, "V");
-    setValue(this.dom.metricElements['minCellVoltage'], this.liveData.minCellVoltage, "V");
-
-    setValue(this.dom.metricElements['capacity.nominal'], this.liveData['capacity.nominal'], "Ah");
-    setValue(this.dom.metricElements['capacity.remaining'], this.liveData['capacity.remaining'], "Ah");
-
-    // dischargeSinceFull arrives in Coulombs; display as Ah
-    setValue(
-      this.dom.metricElements['capacity.dischargeSinceFull'],
-      this.liveData['capacity.dischargeSinceFull'] !== null ? this.liveData['capacity.dischargeSinceFull'] / 3600 : null,
-      "Ah"
-    );
-
-    // timeRemaining arrives in seconds; display as hours
-    setValue(
-      this.dom.metricElements['capacity.timeRemaining'],
-      this.liveData['capacity.timeRemaining'] !== null ? this.liveData['capacity.timeRemaining'] / 3600 : null,
-      "h"
-    );
+    this.ws.onerror = () => {
+      this.ws.close();
+    };
   }
 
-  connectWebSocket() {
-    try {
-      const wsScheme = (window.location.protocol === "https:") ? "wss" : "ws";
-      const ws = new WebSocket(
-        `${wsScheme}://${window.location.host}/signalk/v1/stream?subscribe=self&path=electrical.batteries.bms.*`
-      );
+  _setStatus(online) {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (dot) dot.className = 'status-dot' + (online ? ' online' : '');
+    if (text) text.textContent = online ? 'Connected' : 'Disconnected';
+  }
 
-      ws.onopen = () => console.log("WebSocket connected");
-      ws.onerror = (error) => console.error("WebSocket error:", error);
-      ws.onclose = () => console.log("WebSocket connection closed");
+  _handleDelta(delta) {
+    if (!delta.updates) return;
+    let changed = false;
 
-      ws.onmessage = (event) => {
-        const delta = JSON.parse(event.data);
-        if (!delta.updates) return;
+    delta.updates.forEach(update => {
+      if (!update.values) return;
+      update.values.forEach(({ path, value }) => {
+        if (!path.startsWith(this.prefix)) return;
+        const key = path.slice(this.prefix.length);
 
-        delta.updates.forEach(update => {
-          update.values?.forEach(({ path, value }) => {
-            if (!path.startsWith(this.prefix)) return;
+        if (key in this.live) {
+          this.live[key] = value;
+          changed = true;
+        } else if (/^cellVoltage\d+$/.test(key)) {
+          this.live.cellVoltages[key] = value;
+          changed = true;
+        } else if (/^cellResistance\d+$/.test(key)) {
+          this.live.cellResistances[key] = value;
+          changed = true;
+        }
+      });
+    });
 
-            const key = path.slice(this.prefix.length);
-            if (key in this.liveData) {
-              this.liveData[key] = value;
-            } else if (/^cellVoltage\d+$/.test(key)) {
-              this.liveData.cellVoltages[key] = value;
-            } else if (/^cellResistance\d+$/.test(key)) {
-              this.liveData.cellResistances[key] = value;
-            }
-          });
-        });
-
-        this.updateMetrics();
-        CellVisualizer.updateAllCells({
-          cellVoltages: this.liveData.cellVoltages,
-          cellResistances: this.liveData.cellResistances
-        });
-      };
-    } catch (error) {
-      console.error("WebSocket initialization failed:", error);
+    if (changed) {
+      this._updateSidebar();
+      CellVisualizer.updateAllCells({
+        cellVoltages: this.live.cellVoltages,
+        cellResistances: this.live.cellResistances,
+        minAllowedCellVoltage: this.live.minAllowedCellVoltage,
+        maxAllowedCellVoltage: this.live.maxAllowedCellVoltage,
+        endChargeVoltage: this.live.endChargeVoltage
+      });
     }
+  }
+
+  // ---- Sidebar updates ----
+  _updateSidebar() {
+    const set = (id, value, unit, decimals = 2) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value !== null && value !== undefined
+        ? value.toFixed(decimals) + unit
+        : '--';
+    };
+
+    const soc = this.live['capacity.stateOfCharge'];
+    const soh = this.live['capacity.stateOfHealth'];
+
+    set('stateOfCharge', soc !== null ? soc * 100 : null, '%', 1);
+    set('stateOfHealth', soh !== null ? soh * 100 : null, '%', 1);
+
+    set('voltage', this.live.voltage, ' V');
+    set('current', this.live.current, ' A');
+    set('power',   this.live.power,   ' W', 1);
+
+    set('capacity-nominal',   this.live['capacity.nominal'],   ' Ah', 0);
+    set('capacity-remaining', this.live['capacity.remaining'], ' Ah', 0);
+
+    // dischargeSinceFull is in Coulombs — display as Ah
+    const dsf = this.live['capacity.dischargeSinceFull'];
+    set('capacity-dischargeSinceFull', dsf !== null ? dsf / 3600 : null, ' Ah', 0);
+
+    // timeRemaining is in seconds — display as hours
+    const tr = this.live['capacity.timeRemaining'];
+    set('capacity-timeRemaining', tr !== null ? tr / 3600 : null, ' h', 1);
+
+    set('minCellVoltage',        this.live.minCellVoltage,        ' V', 3);
+    set('maxCellVoltage',        this.live.maxCellVoltage,        ' V', 3);
+    set('cellVoltageDifference', this.live.cellVoltageDifference, ' V', 4);
+
+    // Temperatures arrive in Kelvin — display in °C
+    const ct = this.live.cellTemperature1;
+    const bt = this.live.bmsTemperature;
+    set('cellTemperature1', ct !== null ? ct - 273.15 : null, ' °C', 1);
+    set('bmsTemperature',   bt !== null ? bt - 273.15 : null, ' °C', 1);
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const bmsMonitor = new BMSSystem();
-  bmsMonitor.init();
-
-  const settings = new BMSSettings();
-  settings.init();
+  const monitor = new BMSMonitor();
+  monitor.init();
 });

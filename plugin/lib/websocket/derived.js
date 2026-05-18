@@ -1,27 +1,26 @@
 "use strict";
 
-// Cache latest values across messages
-let latestMaster = null;
-let latestSettings = null;
-
-module.exports = function(parsedData, prefix) {
+module.exports = function(parsedData, prefix, state) {
   const values = [];
 
-  // Update cache if master data is present
+  // state is owned by ws.js and lives for one connection session.
+  // Using it here instead of module-scope variables prevents stale data
+  // from bleeding into a fresh session after plugin restart.
+  if (!state.latestMaster)   state.latestMaster = null;
+  if (!state.latestSettings) state.latestSettings = null;
+
   if (parsedData?.bms_array?.master) {
-    latestMaster = parsedData.bms_array.master;
+    state.latestMaster = parsedData.bms_array.master;
   }
 
-  // Update cache if settings data is present
   if (parsedData?.type === "settings") {
-    latestSettings = parsedData;
+    state.latestSettings = parsedData;
   }
 
-  // If we don't have both yet, don't compute anything
-  if (!latestMaster || !latestSettings) return values;
+  if (!state.latestMaster || !state.latestSettings) return values;
 
-  const master = latestMaster;
-  const settings = latestSettings;
+  const master = state.latestMaster;
+  const settings = state.latestSettings;
 
   // power = voltage * current
   if (typeof master.vbat === "number" && typeof master.ibat === "number") {
@@ -39,15 +38,20 @@ module.exports = function(parsedData, prefix) {
     });
   }
 
-  // ampHourRemaining = capacity - ampHourUsed
+  // capacity.remaining and capacity.dischargeSinceFull
+  // WiFi module sends Ah used (settings.Ah); serial path stores dischargeSinceFull in Coulombs
   if (typeof settings.capa === "number" && typeof settings.Ah === "number") {
     values.push({
-      path: `${prefix}.ampHourRemaining`,
+      path: `${prefix}.capacity.remaining`,
       value: settings.capa - settings.Ah
+    });
+    values.push({
+      path: `${prefix}.capacity.dischargeSinceFull`,
+      value: settings.Ah * 3600
     });
   }
 
-  // timeToFull / timeToEmpty in seconds
+  // timeToFull / capacity.timeRemaining in seconds
   if (
     typeof settings.capa === "number" &&
     typeof settings.Ah === "number" &&
@@ -55,22 +59,22 @@ module.exports = function(parsedData, prefix) {
   ) {
     const capacity = settings.capa;
     const current = master.ibat;
-    const soc = typeof master.soc === "number" ? master.soc : null;
-    const remainingAh = (soc !== null) ? (soc / 100) * capacity : (capacity - settings.Ah);
+    // WiFi module SOC is 0-100; convert to fraction for Ah calculation
+    const soc = typeof master.soc === "number" ? master.soc / 100 : null;
+    const remainingAh = soc !== null ? soc * capacity : (capacity - settings.Ah);
 
     if (current > 0 && remainingAh < capacity) {
       const missingAh = capacity - remainingAh;
       const timeToFull = (missingAh / current) * 3600;
-      values.push({ path: `${prefix}.timeToFull`, value: timeToFull });
-      values.push({ path: `${prefix}.timeToEmpty`, value: 0 });
+      values.push({ path: `${prefix}.timeToFull`,             value: timeToFull });
+      values.push({ path: `${prefix}.capacity.timeRemaining`, value: 0 });
     } else if (current < 0 && remainingAh > 0) {
       const timeToEmpty = (remainingAh / Math.abs(current)) * 3600;
-      values.push({ path: `${prefix}.timeToFull`, value: 0 });
-      values.push({ path: `${prefix}.timeToEmpty`, value: timeToEmpty });
+      values.push({ path: `${prefix}.timeToFull`,             value: 0 });
+      values.push({ path: `${prefix}.capacity.timeRemaining`, value: timeToEmpty });
     } else {
-      // idle or insufficient current
-      values.push({ path: `${prefix}.timeToFull`, value: 0 });
-      values.push({ path: `${prefix}.timeToEmpty`, value: 0 });
+      values.push({ path: `${prefix}.timeToFull`,             value: 0 });
+      values.push({ path: `${prefix}.capacity.timeRemaining`, value: 0 });
     }
   }
 

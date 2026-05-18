@@ -2,10 +2,13 @@
 
 const schema = require('./lib/schema');
 const connection = require('./lib/connection');
+const HistoryBuffer = require('./lib/history');
 
 module.exports = function(app) {
   let conn;
   let pluginOptions;
+  let historyBuffer;
+  let historyRouteRegistered = false;
 
   function publishMeta(options) {
     const p = options.deltaPrefix || "electrical.batteries.bms";
@@ -94,10 +97,13 @@ module.exports = function(app) {
   }
 
   function publishDelta(delta) {
+    if (historyBuffer) historyBuffer.record(delta);
+
     const precision = 5;
     const factor = Math.pow(10, precision);
 
     delta.updates.forEach(update => {
+      update.$source = "signalk-rec-bms";
       update.values.forEach(item => {
         if (typeof item.value === "number") {
           item.value = Math.round(item.value * factor) / factor;
@@ -122,15 +128,31 @@ module.exports = function(app) {
       pluginOptions = options;
       app.debug(`[INDEX] START invoked with options: ${JSON.stringify(options)}`);
       app.setPluginStatus("Connecting to BMS…");
+
+      const prefix = options.deltaPrefix || "electrical.batteries.bms";
+      const dataDir = typeof app.getDataDirPath === 'function' ? app.getDataDirPath() : null;
+      historyBuffer = new HistoryBuffer(prefix, dataDir);
+
+      if (!historyRouteRegistered) {
+        historyRouteRegistered = true;
+        app.get('/signalk/v1/bms/history', (req, res) => {
+          if (!historyBuffer) return res.status(503).json({ error: "Buffer not ready" });
+          const hours = req.query.hours || 1;
+          res.json(historyBuffer.getHistory(hours));
+        });
+      }
+
       publishMeta(options);
       conn = connection(options, app, publishDelta);
       conn.start(options);
     },
     stop: function() {
+      if (historyBuffer) historyBuffer.stop();
       if (conn) {
         conn.stop();
         conn = null;
       }
+      historyBuffer = null;
       app.debug("[INDEX] Plugin stopped");
       app.setPluginStatus("Stopped");
     },
