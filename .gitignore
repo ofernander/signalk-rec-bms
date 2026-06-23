@@ -1,4 +1,6 @@
 MISC_no_git
+node_modules/
+package-lock.json
 .DS_Store
 .AppleDouble
 .LSOverride

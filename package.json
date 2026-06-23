@@ -1,10 +1,10 @@
 {
   "name": "signalk-rec-bms",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "SignalK plugin for REC-BMS",
   "main": "plugin/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/parsers.test.js"
   },
   "keywords": [
     "signalk-webapp",
