@@ -141,7 +141,7 @@ class BMSChart {
 
   async fetch() {
     try {
-      const res = await fetch(`/signalk/v1/bms/history?hours=${this.activeHours}`);
+      const res = await fetch(`${PLUGIN_API}/history?hours=${this.activeHours}`);
       if (!res.ok) return;
       const json = await res.json();
       this._update(json);

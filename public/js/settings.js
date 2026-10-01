@@ -1,9 +1,9 @@
 'use strict';
 
 class BMSSettings {
-  constructor() {
+  constructor(deltaPrefix = 'electrical.batteries.bms') {
     this.tempCommands = new Set(['TMAX', 'TMIN', 'TBAL', 'BMTH']);
-    this.prefix = 'electrical/batteries/bms';
+    this.prefix = deltaPrefix.replace(/\./g, '/');
 
     this.commandGroups = [
       { title: "Voltage Settings",      commands: ["BVOL","BMIN","CMAX","MAXH","CMIN","MINH","CHAR","CHIS","UBDI","CFVC","RAZL"] },
@@ -446,9 +446,19 @@ class BMSSettings {
         }
 
         btn.disabled = true;
-        const response = await this._sendCommand(`${cmd} ${value}`);
-        const ok = response && typeof response === 'object' && Object.keys(response).length > 0;
-        input.value = ok ? 'OK' : 'FAIL';
+        try {
+          const response = await this._sendCommand(`${cmd} ${value}`);
+          const ok = response && typeof response === 'object' && Object.keys(response).length > 0;
+          input.value = ok ? 'OK' : 'FAIL';
+        } catch (err) {
+          console.error(`[SETTINGS] ${cmd} failed:`, err);
+          input.value = 'FAIL';
+          input.classList.add('input-error');
+          const msg = document.createElement('div');
+          msg.className = 'input-error-msg';
+          msg.textContent = err.message;
+          input.parentElement.appendChild(msg);
+        }
         btn.disabled = false;
 
         setTimeout(() => this.prefillValues(), 5000);
@@ -509,12 +519,13 @@ class BMSSettings {
   }
 
   async _sendCommand(command) {
-    const res = await fetch('/signalk/v1/bms/command', {
+    const res = await fetch(`${PLUGIN_API}/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command })
     });
-    const result = await res.json();
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
     return result.response;
   }
 }

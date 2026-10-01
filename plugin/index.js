@@ -4,14 +4,15 @@ const schema = require('./lib/schema');
 const connection = require('./lib/connection');
 const HistoryBuffer = require('./lib/history');
 
+const DEFAULT_PREFIX = "electrical.batteries.bms";
+
 module.exports = function(app) {
   let conn;
   let pluginOptions;
   let historyBuffer;
-  let historyRouteRegistered = false;
 
   function publishMeta(options) {
-    const p = options.deltaPrefix || "electrical.batteries.bms";
+    const p = options.deltaPrefix || DEFAULT_PREFIX;
 
     const meta = [
       // Live data
@@ -119,28 +120,66 @@ module.exports = function(app) {
     }
   }
 
+  // When server security is enabled every request reaching a plugin route is
+  // authenticated, but read-only users (including anonymous ones when
+  // allow_readonly is set) get through too. Changing BMS settings requires admin.
+  function isAdmin(req) {
+    const principal = req.skPrincipal;
+    return !principal || principal.permissions === 'admin';
+  }
+
+  // Mounted by the server at /plugins/signalk-rec-bms/
+  function registerWithRouter(router) {
+    // Servers >= 2.33 require admin for plugin routes unless declared via
+    // router.access(); the read-only routes back the dashboard, so any logged
+    // in user may read them. /command is left undeclared (admin only).
+    const readonly = typeof router.access === 'function' ? router.access('readonly') : router;
+
+    readonly.get('/info', (req, res) => {
+      res.json({
+        running: !!conn,
+        deltaPrefix: (pluginOptions && pluginOptions.deltaPrefix) || DEFAULT_PREFIX,
+        connectionType: pluginOptions && pluginOptions.connection && pluginOptions.connection.connectionType
+      });
+    });
+
+    readonly.get('/history', (req, res) => {
+      if (!historyBuffer) return res.status(503).json({ error: "Buffer not ready" });
+      const hours = req.query.hours || 1;
+      res.json(historyBuffer.getHistory(hours));
+    });
+
+    router.post('/command', (req, res) => {
+      const command = req.body && req.body.command;
+      if (!isAdmin(req)) {
+        return res.status(403).json({ error: "Admin permission required to send BMS commands", command });
+      }
+      if (!conn) {
+        return res.status(503).json({ error: "Plugin not running", command });
+      }
+      if (typeof conn.handleCommand !== 'function') {
+        return res.status(400).json({ error: "Commands are only supported on a serial connection", command });
+      }
+      conn.handleCommand(command)
+        .then(result => res.json(result))
+        .catch(err => res.status(err.statusCode || 500).json({ error: err.message, command }));
+    });
+  }
+
   var plugin = {
     id: "signalk-rec-bms",
     name: "SignalK-REC-BMS",
     description: "SignalK plugin for REC-BMS",
     schema: schema,
+    registerWithRouter,
     start: function(options) {
       pluginOptions = options;
       app.debug(`[INDEX] START invoked with options: ${JSON.stringify(options)}`);
       app.setPluginStatus("Connecting to BMS…");
 
-      const prefix = options.deltaPrefix || "electrical.batteries.bms";
+      const prefix = options.deltaPrefix || DEFAULT_PREFIX;
       const dataDir = typeof app.getDataDirPath === 'function' ? app.getDataDirPath() : null;
       historyBuffer = new HistoryBuffer(prefix, dataDir);
-
-      if (!historyRouteRegistered) {
-        historyRouteRegistered = true;
-        app.get('/signalk/v1/bms/history', (req, res) => {
-          if (!historyBuffer) return res.status(503).json({ error: "Buffer not ready" });
-          const hours = req.query.hours || 1;
-          res.json(historyBuffer.getHistory(hours));
-        });
-      }
 
       publishMeta(options);
       conn = connection(options, app, publishDelta);

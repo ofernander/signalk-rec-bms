@@ -1,8 +1,12 @@
 'use strict';
 
+const PLUGIN_API = '/plugins/signalk-rec-bms';
+const DEFAULT_PREFIX = 'electrical.batteries.bms';
+
 class BMSMonitor {
   constructor() {
-    this.prefix = 'electrical.batteries.bms.';
+    this.deltaPrefix = DEFAULT_PREFIX;
+    this.prefix = DEFAULT_PREFIX + '.';
     this.ws = null;
     this.reconnectDelay = 5000;
     this.reconnectTimer = null;
@@ -31,14 +35,32 @@ class BMSMonitor {
     };
   }
 
-  init() {
+  async init() {
     this._initNightMode();
     this._initTabs();
     CellVisualizer.init('cell-towers');
     BMSChartManager.init();
-    const settings = new BMSSettings();
+
+    this.deltaPrefix = await this._fetchDeltaPrefix();
+    this.prefix = this.deltaPrefix + '.';
+
+    const settings = new BMSSettings(this.deltaPrefix);
     settings.init();
     this._connect();
+  }
+
+  // The plugin's deltaPrefix setting decides which paths we read
+  async _fetchDeltaPrefix() {
+    try {
+      const res = await fetch(`${PLUGIN_API}/info`);
+      if (res.ok) {
+        const info = await res.json();
+        if (info.deltaPrefix) return info.deltaPrefix;
+      }
+    } catch (e) {
+      console.warn('[BMS] Could not read plugin info, using default path prefix', e);
+    }
+    return DEFAULT_PREFIX;
   }
 
   // ---- Night mode ----
@@ -85,7 +107,7 @@ class BMSMonitor {
       this.ws.send(JSON.stringify({
         context: 'vessels.self',
         subscribe: [{
-          path: 'electrical.batteries.bms.*',
+          path: `${this.deltaPrefix}.*`,
           period: 1000
         }]
       }));
